@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Daily - AI News Aggregator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,800;9..144,900&family=JetBrains+Mono:wght@300;400;500;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --bg-2: #111113;
+    --fg: #f5f5f0;
+    --muted: #8a8a85;
+    --accent: #d4ff3d;
+    --accent-2: #ff6b35;
+    --border: rgba(255,255,255,0.08);
+    --card: rgba(255,255,255,0.03);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .font-serif { font-family: 'Fraunces', serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.18;
+    pointer-events: none;
+    animation: float 22s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(80px, 60px) scale(1.15); }
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 30%, transparent 80%);
+  }
+
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(212,255,61,0.3); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    transition: all 0.45s cubic-bezier(0.4,0,0.2,1);
+    backdrop-filter: blur(10px);
+  }
+  .card:hover {
+    border-color: rgba(212,255,61,0.25);
+    transform: translateY(-6px);
+    background: rgba(212,255,61,0.015);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0a0b;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    font-weight: 700;
+  }
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.7s ease;
+  }
+  .btn-primary:hover::before { transform: translateX(100%); }
+  .btn-primary:hover { box-shadow: 0 0 50px rgba(212,255,61,0.45); }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(36px);
+    transition: opacity 0.9s ease, transform 0.9s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  .pulse-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .pulse-dot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2.2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(3.5); opacity: 0; }
+  }
+
+  .live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #ef4444;
+    font-weight: 600;
+  }
+  .live-indicator::before {
+    content: '';
+    width: 7px; height: 7px;
+    background: #ef4444;
+    border-radius: 50%;
+    animation: blink 1.5s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+
+  .email-input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+    color: var(--fg);
+  }
+  .email-input::placeholder { color: var(--muted); }
+  .email-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 0 0 4px rgba(212,255,61,0.12);
+  }
+
+  .tab-btn {
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #0a0a0b;
+    border-color: var(--accent);
+  }
+  .tab-btn:not(.active):hover {
+    border-color: var(--border);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    padding: 16px 22px;
+    background: var(--accent);
+    color: #0a0a0b;
+    border-radius: 14px;
+    font-weight: 600;
+    z-index: 200;
+    transform: translateY(120px);
+    opacity: 0;
+    transition: all 0.45s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 25px 50px rgba(212,255,61,0.35);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 380px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { background: #ef4444; color: white; box-shadow: 0 25px 50px rgba(239,68,68,0.35); }
+
+  .source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+  .src-openai { background: rgba(16,163,127,0.12); color: #10a37f; border-color: rgba(16,163,127,0.3); }
+  .src-anthropic { background: rgba(217,119,87,0.12); color: #d97757; border-color: rgba(217,119,87,0.3); }
+  .src-youtube { background: rgba(255,0,0,0.12); color: #ff4444; border-color: rgba(255,0,0,0.3); }
+  .src-research { background: rgba(129,140,248,0.12); color: #818cf8; border-color: rgba(129,140,248,0.3); }
+
+  .article-card .article-img { transition: transform 0.7s cubic-bezier(0.4,0,0.2,1); }
+  .article-card:hover .article-img { transform: scale(1.06); }
+  .article-card .arrow { transition: transform 0.3s ease; }
+  .article-card:hover .arrow { transform: translateX(6px); }
+
+  .ticker-wrap { overflow: hidden; mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent); }
+  .ticker {
+    display: inline-flex;
+    gap: 3rem;
+    animation: ticker 40s linear infinite;
+    white-space: nowrap;
+  }
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .stat-card { position: relative; overflow: hidden; }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: -50%; right: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(212,255,61,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    opacity: 0;
+  }
+  .stat-card:hover::before { opacity: 1; }
+
+  .hl { position: relative; display: inline; }
+  .hl::after {
+    content: '';
+    position: absolute;
+    bottom: 2px; left: -2px; right: -2px;
+    height: 14px;
+    background: var(--accent);
+    z-index: -1;
+    opacity: 0.55;
+    transform: skewX(-8deg);
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
+
+  .bar { transition: height 1s cubic-bezier(0.4,0,0.2,1); }
+
+  .admin-row { transition: background 0.2s ease; }
+  .admin-row:hover { background: rgba(212,255,61,0.03); }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-top-color: #0a0a0b;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .spark-line { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: draw 2s ease-out forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  /* Skeleton Loading */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background blobs -->
+<div class="fixed inset-0 pointer-events-none z-0">
+  <div class="blob bg-[#d4ff3d]" style="width:600px;height:600px;top:-200px;left:-150px;"></div>
+  <div class="blob bg-[#ff6b35]" style="width:500px;height:500px;bottom:-150px;right:-100px;animation-delay:-11s;"></div>
+</div>
+
+<!-- Navigation -->
+<nav class="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-black/40 border-b border-white/5">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2.5 group">
+      <div class="w-8 h-8 rounded-lg bg-[#d4ff3d] flex items-center justify-center group-hover:rotate-12 transition-transform">
+        <i class="fa-solid fa-bolt text-black text-sm"></i>
+      </div>
+      <span class="font-serif text-xl font-semibold tracking-tight">AI Daily</span>
+    </a>
+    <div class="hidden md:flex items-center gap-8 text-sm text-[#8a8a85]">
+      <a href="#digest" class="hover:text-white transition-colors">Today's Digest</a>
+      <a href="#stats" class="hover:text-white transition-colors">Statistics</a>
+      <a href="#latest" class="hover:text-white transition-colors">Latest</a>
+      <a href="#admin" class="hover:text-white transition-colors">Admin</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex live-indicator">
+        <span>LIVE</span>
+      </div>
+      <a href="#admin" class="text-sm border border-white/10 rounded-full px-4 py-1.5 hover:bg-white/5 transition-colors">
+        <i class="fa-solid fa-lock-open text-xs mr-1.5 text-[#d4ff3d]"></i>Admin
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="relative min-h-screen flex items-center pt-24 pb-16 px-6 z-10">
+  <div class="absolute inset-0 grid-bg"></div>
+  <div class="max-w-7xl mx-auto w-full relative">
+    <div class="grid lg:grid-cols-12 gap-12 items-center">
+      <div class="lg:col-span-7">
+        <div class="inline-flex items-center gap-2 text-xs font-mono text-[#8a8a85] border border-white/10 rounded-full px-3 py-1.5 mb-8">
+          <div class="pulse-dot"></div>
+          <span>PIPELINE RUNNING · LAST RUN <span id="last-run">LOADING...</span></span>
+        </div>
+        <h1 class="font-serif text-6xl md:text-7xl lg:text-[88px] leading-[0.95] font-semibold tracking-tight mb-6">
+          AI news,<br>
+          <span class="italic font-light">decoded</span> every<br>
+          <span class="hl">morning</span>.
+        </h1>
+        <p class="text-lg text-[#8a8a85] max-w-xl mb-10 leading-relaxed">
+          A single, intelligent digest summarizing what matters across OpenAI, Anthropic, YouTube, and frontier research papers — delivered to your inbox before your coffee.
+        </p>
+
+        <div class="flex flex-wrap gap-2 mb-8">
+          <span class="source-badge src-openai"><i class="fa-brands fa-openai"></i>OpenAI</span>
+          <span class="source-badge src-anthropic"><i class="fa-solid fa-atom"></i>Anthropic</span>
+          <span class="source-badge src-youtube"><i class="fa-brands fa-youtube"></i>YouTube</span>
+          <span class="source-badge src-research"><i class="fa-solid fa-flask"></i>Research Papers</span>
+        </div>
+
+        <form id="subscribe-form" class="flex flex-col sm:flex-row gap-3 max-w-lg mb-6">
+          <input id="email-input" type="email" required placeholder="you@company.com" class="email-input flex-1 px-5 py-4 rounded-xl text-base">
+          <button type="submit" id="subscribe-btn" class="btn-primary px-7 py-4 rounded-xl text-sm whitespace-nowrap flex items-center justify-center gap-2">
+            <span id="btn-text">Subscribe Free</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </form>
+
+        <div class="flex items-center gap-6 text-sm text-[#8a8a85]">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-users text-[#d4ff3d]"></i>
+            <span><span class="font-semibold text-white" id="hero-sub-count">0</span> subscribers</span>
+          </div>
+          <div class="hidden sm:flex items-center gap-2">
+            <i class="fa-solid fa-check text-[#d4ff3d]"></i>
+            <span>No spam · Unsubscribe anytime</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-5 relative">
+        <div class="card rounded-2xl p-6 relative">
+          <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-[#d4ff3d]"></div>
+              <div class="w-2 h-2 rounded-full bg-white/20"></div>
+              <div class="w-2 h-2 rounded-full bg-white/20"></div>
+            </div>
+            <span class="font-mono text-[10px] text-[#8a8a85]">SYSTEM_STATUS.TXT</span>
+          </div>
+          <div class="font-mono text-xs space-y-2 text-[#8a8a85]">
+            <div><span class="text-[#d4ff3d]">$</span> ai-daily --generate --today</div>
+            <div class="text-white/70">→ Fetching from sources...</div>
+            <div class="text-white/70">→ <span class="text-[#10a37f]">✓</span> openai.com/blog</div>
+            <div class="text-white/70">→ <span class="text-[#10a37f]">✓</span> anthropic.com/news</div>
+            <div class="text-white/70">→ <span class="text-[#10a37f]">✓</span> youtube.com</div>
+            <div class="text-white/70">→ <span class="text-[#10a37f]">✓</span> arxiv.org</div>
+            <div class="text-white/70">→ Summarizing with Groq...</div>
+            <div class="text-[#d4ff3d]">→ Digest ready</div>
+          </div>
+          <div class="mt-5 pt-5 border-t border-white/5">
+            <div class="flex items-end justify-between gap-1.5 h-16">
+              <div class="bar flex-1 bg-white/10 rounded-sm" style="height: 30%"></div>
+              <div class="bar flex-1 bg-white/10 rounded-sm" style="height: 55%"></div>
+              <div class="bar flex-1 bg-white/10 rounded-sm" style="height: 40%"></div>
+              <div class="bar flex-1 bg-white/10 rounded-sm" style="height: 70%"></div>
+              <div class="bar flex-1 bg-white/10 rounded-sm" style="height: 50%"></div>
+              <div class="bar flex-1 bg-[#d4ff3d] rounded-sm" style="height: 90%"></div>
+              <div class="bar flex-1 bg-white/10 rounded-sm" style="height: 65%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] font-mono text-[#8a8a85] mt-2">
+              <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- News Ticker -->
+<section class="border-y border-white/5 bg-black/30 py-4 relative z-10">
+  <div class="ticker-wrap">
+    <div class="ticker font-mono text-sm" id="news-ticker">
+      <span class="text-[#8a8a85]"><span class="text-[#d4ff3d]">●</span> Loading latest headlines...</span>
+    </div>
+  </div>
+</section>
+
+<!-- TODAY'S DIGEST -->
+<section id="digest" class="py-24 px-6 relative z-10">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex items-end justify-between mb-12 reveal">
+      <div>
+        <div class="section-label mb-3">01 / Today's AI Digest</div>
+        <h2 class="font-serif text-5xl md:text-6xl font-semibold tracking-tight">
+          What happened<br>
+          <span class="italic font-light text-[#d4ff3d]">while you slept.</span>
+        </h2>
+      </div>
+      <div class="hidden md:block text-right">
+        <div class="text-xs text-[#8a8a85] font-mono">CURATED AT</div>
+        <div class="text-2xl font-mono font-bold" id="digest-time">--:--</div>
+      </div>
+    </div>
+
+    <div class="space-y-4" id="digest-container">
+      <!-- Skeletons for digest -->
+      <div class="card rounded-2xl p-10 h-64 skeleton"></div>
+      <div class="card rounded-2xl p-10 h-64 skeleton"></div>
+    </div>
+  </div>
+</section>
+
+<!-- STATISTICS -->
+<section id="stats" class="py-24 px-6 relative z-10 border-y border-white/5 bg-black/20">
+  <div class="max-w-7xl mx-auto">
+    <div class="mb-12 reveal">
+      <div class="section-label mb-3">02 / Statistics</div>
+      <h2 class="font-serif text-5xl md:text-6xl font-semibold tracking-tight">
+        Pipeline <span class="italic font-light">at a glance.</span>
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="stat-card card rounded-2xl p-6 reveal">
+        <div class="flex items-center justify-between mb-4">
+          <i class="fa-solid fa-newspaper text-[#d4ff3d]"></i>
+          <span class="text-[10px] font-mono text-[#8a8a85]">TODAY</span>
+        </div>
+        <div class="text-4xl font-bold font-serif mb-1" id="stat-articles">-</div>
+        <div class="text-sm text-[#8a8a85]">Today's Articles</div>
+      </div>
+
+      <div class="stat-card card rounded-2xl p-6 reveal">
+        <div class="flex items-center justify-between mb-4">
+          <i class="fa-solid fa-users text-[#d4ff3d]"></i>
+          <span class="text-[10px] font-mono text-[#8a8a85]">TOTAL</span>
+        </div>
+        <div class="text-4xl font-bold font-serif mb-1" id="stat-subscribers">-</div>
+        <div class="text-sm text-[#8a8a85]">Subscribers</div>
+      </div>
+
+      <div class="stat-card card rounded-2xl p-6 reveal">
+        <div class="flex items-center justify-between mb-4">
+          <i class="fa-solid fa-database text-[#d4ff3d]"></i>
+          <span class="text-[10px] font-mono text-[#8a8a85]">ACTIVE</span>
+        </div>
+        <div class="text-4xl font-bold font-serif mb-1" id="stat-sources">-</div>
+        <div class="text-sm text-[#8a8a85]">Sources</div>
+      </div>
+
+      <div class="stat-card card rounded-2xl p-6 reveal">
+        <div class="flex items-center justify-between mb-4">
+          <i class="fa-solid fa-paper-plane text-[#d4ff3d]"></i>
+          <span class="text-[10px] font-mono text-[#8a8a85]">DELIVERED</span>
+        </div>
+        <div class="text-4xl font-bold font-serif mb-1" id="stat-emails">-</div>
+        <div class="text-sm text-[#8a8a85]">Emails Sent</div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="card rounded-2xl p-6 reveal flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-[#d4ff3d]/10 flex items-center justify-center flex-shrink-0">
+          <i class="fa-regular fa-clock text-[#d4ff3d] text-lg"></i>
+        </div>
+        <div>
+          <div class="text-xs text-[#8a8a85] font-mono mb-1">LAST UPDATED</div>
+          <div class="text-2xl font-mono font-bold" id="last-updated">--:--</div>
+        </div>
+      </div>
+
+      <div class="card rounded-2xl p-6 reveal flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-[#10a37f]/10 flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid fa-circle-check text-[#10a37f] text-lg"></i>
+        </div>
+        <div>
+          <div class="text-xs text-[#8a8a85] font-mono mb-1">PIPELINE STATUS</div>
+          <div class="text-2xl font-bold text-[#10a37f]" id="pipeline-status">Loading...</div>
+        </div>
+      </div>
+
+      <div class="card rounded-2xl p-6 reveal">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs text-[#8a8a85] font-mono">7-DAY GROWTH</div>
+        </div>
+        <svg viewBox="0 0 200 60" class="w-full h-16">
+          <polyline points="0,45 28,38 56,42 84,28 112,32 140,18 168,22 200,8" fill="none" stroke="#d4ff3d" stroke-width="2" class="spark-line"/>
+          <polyline points="0,45 28,38 56,42 84,28 112,32 140,18 168,22 200,8 200,60 0,60" fill="url(#sparkGrad)" opacity="0.2"/>
+          <defs>
+            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#d4ff3d"/>
+              <stop offset="100%" stop-color="#d4ff3d" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LATEST ARTICLES -->
+<section id="latest" class="py-24 px-6 relative z-10">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 reveal">
+      <div>
+        <div class="section-label mb-3">03 / Latest AI Articles</div>
+        <h2 class="font-serif text-5xl md:text-6xl font-semibold tracking-tight">
+          Fresh from <span class="italic font-light">the wire.</span>
+        </h2>
+      </div>
+      <div class="flex flex-wrap gap-2" id="filter-tabs">
+        <button class="tab-btn active rounded-full px-4 py-2 text-sm font-medium" data-filter="all">All</button>
+        <button class="tab-btn rounded-full px-4 py-2 text-sm font-medium" data-filter="openai">OpenAI</button>
+        <button class="tab-btn rounded-full px-4 py-2 text-sm font-medium" data-filter="anthropic">Anthropic</button>
+        <button class="tab-btn rounded-full px-4 py-2 text-sm font-medium" data-filter="youtube">YouTube</button>
+        <button class="tab-btn rounded-full px-4 py-2 text-sm font-medium" data-filter="research">Research</button>
+      </div>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5" id="articles-grid">
+      <!-- Skeletons for articles -->
+      <div class="card rounded-2xl overflow-hidden h-80 skeleton"></div>
+      <div class="card rounded-2xl overflow-hidden h-80 skeleton"></div>
+      <div class="card rounded-2xl overflow-hidden h-80 skeleton"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN DASHBOARD -->
+<section id="admin" class="py-24 px-6 relative z-10 border-t border-white/5" style="background: linear-gradient(180deg, transparent 0%, rgba(212,255,61,0.02) 100%);">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-12 reveal">
+      <div>
+        <div class="section-label mb-3">04 / Admin Dashboard</div>
+        <h2 class="font-serif text-5xl md:text-6xl font-semibold tracking-tight">
+          Mission <span class="italic font-light">control.</span>
+        </h2>
+        <p class="text-[#8a8a85] mt-3 text-sm">Restricted access · You're signed in as owner</p>
+      </div>
+      <div class="hidden md:flex items-center gap-2 card rounded-full px-4 py-2">
+        <div class="w-2 h-2 rounded-full bg-[#10a37f]"></div>
+        <span class="text-xs font-mono">AUTHENTICATED</span>
+      </div>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 reveal">
+      <div class="card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs text-[#8a8a85] font-mono">SUBSCRIBERS</span>
+          <i class="fa-solid fa-users text-[#8a8a85]"></i>
+        </div>
+        <div class="text-4xl font-bold font-serif mb-1" id="admin-stat-subscribers">-</div>
+        <div class="text-xs text-[#d4ff3d] flex items-center gap-1">
+          <i class="fa-solid fa-arrow-up text-[10px]"></i> Live updating
+        </div>
+      </div>
+      <div class="card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs text-[#8a8a85] font-mono">TODAY'S EMAILS</span>
+          <i class="fa-solid fa-envelope text-[#8a8a85]"></i>
+        </div>
+        <div class="text-4xl font-bold font-serif mb-1" id="admin-stat-emails">-</div>
+        <div class="text-xs text-[#10a37f] flex items-center gap-1">
+          <i class="fa-solid fa-check text-[10px]"></i> All delivered
+        </div>
+      </div>
+      <div class="card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs text-[#8a8a85] font-mono">LAST PIPELINE</span>
+          <i class="fa-solid fa-gear text-[#8a8a85]"></i>
+        </div>
+        <div class="text-2xl font-bold font-serif mb-1 text-[#10a37f] flex items-center gap-2">
+          <i class="fa-solid fa-circle-check"></i> <span id="pipeline-status-admin">Success</span>
+        </div>
+        <div class="text-xs text-[#8a8a85]">Ran at <span id="pipeline-time">--:--</span></div>
+      </div>
+      <div class="card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs text-[#8a8a85] font-mono">OPEN RATE</span>
+          <i class="fa-solid fa-chart-line text-[#8a8a85]"></i>
+        </div>
+        <div class="text-4xl font-bold font-serif mb-1" id="admin-open-rate">-</div>
+        <div class="text-xs text-[#d4ff3d] flex items-center gap-1">
+          <i class="fa-solid fa-arrow-up text-[10px]"></i> Healthy
+        </div>
+      </div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 card rounded-2xl p-6 reveal">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="font-serif text-xl font-semibold">Latest Subscribers</h3>
+            <p class="text-xs text-[#8a8a85] mt-1">Most recent signups</p>
+          </div>
+        </div>
+        <div class="space-y-1" id="subscribers-list">
+          <div class="h-12 skeleton rounded-lg"></div>
+          <div class="h-12 skeleton rounded-lg"></div>
+          <div class="h-12 skeleton rounded-lg"></div>
+        </div>
+      </div>
+
+      <div class="card rounded-2xl p-6 reveal">
+        <h3 class="font-serif text-xl font-semibold mb-1">Pipeline Log</h3>
+        <p class="text-xs text-[#8a8a85] mb-6">Last 5 events</p>
+        <div class="space-y-4" id="pipeline-log">
+          <div class="h-6 skeleton rounded"></div>
+          <div class="h-6 skeleton rounded"></div>
+        </div>
+        <button id="trigger-pipeline" class="w-full mt-6 btn-primary py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-play text-xs"></i>
+          Trigger Pipeline Now
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="border-t border-white/5 py-12 px-6 relative z-10">
+  <div class="max-w-7xl mx-auto">
+    <div class="grid md:grid-cols-4 gap-8 mb-8">
+      <div>
+        <div class="flex items-center gap-2.5 mb-4">
+          <div class="w-7 h-7 rounded-lg bg-[#d4ff3d] flex items-center justify-center">
+            <i class="fa-solid fa-bolt text-black text-xs"></i>
+          </div>
+          <span class="font-serif text-lg font-semibold">AI Daily</span>
+        </div>
+        <p class="text-sm text-[#8a8a85] leading-relaxed">AI-curated news delivered every morning. Built for people who need to know what matters, fast.</p>
+      </div>
+      <div>
+        <div class="text-xs font-mono text-[#8a8a85] mb-3">SOURCES</div>
+        <ul class="space-y-2 text-sm">
+          <li><a href="#" class="hover:text-[#d4ff3d] transition-colors">OpenAI Blog</a></li>
+          <li><a href="#" class="hover:text-[#d4ff3d] transition-colors">Anthropic News</a></li>
+          <li><a href="#" class="hover:text-[#d4ff3d] transition-colors">YouTube Channels</a></li>
+          <li><a href="#" class="hover:text-[#d4ff3d] transition-colors">arXiv Papers</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-xs font-mono text-[#8a8a85] mb-3">PRODUCT</div>
+        <ul class="space-y-2 text-sm">
+          <li><a href="#digest" class="hover:text-[#d4ff3d] transition-colors">Today's Digest</a></li>
+          <li><a href="#latest" class="hover:text-[#d4ff3d] transition-colors">Archive</a></li>
+          <li><a href="#admin" class="hover:text-[#d4ff3d] transition-colors">Admin</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-xs font-mono text-[#8a8a85] mb-3">SYSTEM</div>
+        <div class="flex items-center gap-2 text-sm mb-2">
+          <div class="w-2 h-2 rounded-full bg-[#10a37f]"></div>
+          <span>All systems operational</span>
+        </div>
+        <div class="text-xs text-[#8a8a85] font-mono">v1.0.0</div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<div id="toast" class="toast">
+  <i class="fa-solid fa-circle-check"></i>
+  <span id="toast-msg">Subscribed successfully!</span>
+</div>
+
+<script>
+  // ==========================================
+  // API LAYER - CONNECTED TO BACKEND
+  // These functions hit your actual FastAPI endpoints.
+  // No mock data, no setTimeout. Just real network requests.
+  // ==========================================
+
+  const API_BASE = ''; // Assuming frontend is served from the same FastAPI domain
+
+  const api = {
+    getStats: async () => {
+      const res = await fetch(`${API_BASE}/api/stats`);
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
+    
+    getDigest: async () => {
+      const res = await fetch(`${API_BASE}/api/digest/today`);
+      if (!res.ok) throw new Error('Failed to fetch digest');
+      return res.json(); 
+    },
+    
+    getArticles: async () => {
+      const res = await fetch(`${API_BASE}/api/articles`);
+      if (!res.ok) throw new Error('Failed to fetch articles');
+      return res.json();
+    },
+    
+    getSubscribers: async () => {
+      const res = await fetch(`${API_BASE}/api/subscribers`);
+      if (!res.ok) throw new Error('Failed to fetch subscribers');
+      return res.json();
+    },
+    
+    getLogs: async () => {
+      const res = await fetch(`${API_BASE}/api/logs`);
+      if (!res.ok) throw new Error('Failed to fetch logs');
+      return res.json();
+    },
+    
+    // POST request to add email to PostgreSQL via FastAPI
+    subscribe: async (email) => {
+      const res = await fetch(`${API_BASE}/api/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to subscribe');
+      }
+      return res.json();
+    },
+
+    // POST request to trigger Python RSS/Groq/Email pipeline
+    runPipeline: async () => {
+      const res = await fetch(`${API_BASE}/api/run-digest`, {
+        method: 'POST'
+      });
+      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to run pipeline');
+      }
+      return res.json();
+    }
+  };
+
+  // ==========================================
+  // FRONTEND STATE & DOM MANIPULATION
+  // ==========================================
+
+  let allArticles = [];
+
+  // Utility to format time
+  const formatTime = (dateString) => {
+    if (!dateString) return '--:--';
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
+  };
+
+  // ==========================================
+  // INITIALIZATION (API CALLS ON LOAD)
+  // ==========================================
+  
+  async function initializeApp() {
+    try {
+      // 1. Fetch Stats
+      const stats = await api.getStats();
+      document.getElementById('hero-sub-count').textContent = stats.subscribers || 0;
+      document.getElementById('stat-articles').textContent = stats.articlesToday || 0;
+      document.getElementById('stat-subscribers').textContent = stats.subscribers || 0;
+      document.getElementById('stat-sources').textContent = stats.sources || 0;
+      document.getElementById('stat-emails').textContent = stats.emailsSent || 0;
+      document.getElementById('admin-stat-subscribers').textContent = stats.subscribers || 0;
+      document.getElementById('admin-stat-emails').textContent = stats.emailsSent || 0;
+      document.getElementById('admin-open-rate').textContent = stats.openRate ? `${stats.openRate}%` : '-';
+      document.getElementById('pipeline-status').textContent = stats.pipelineStatus || 'Unknown';
+      document.getElementById('last-updated').textContent = formatTime(stats.lastUpdated);
+      document.getElementById('digest-time').textContent = formatTime(stats.lastUpdated);
+      document.getElementById('pipeline-time').textContent = formatTime(stats.lastUpdated);
+
+      // 2. Fetch Digest
+      const digestData = await api.getDigest();
+      const digest = digestData.articles || digestData; // Adjust based on your API shape
+      const digestHtml = (digest && digest.length > 0) ? digest.map(article => `
+        <article class="card rounded-2xl p-8 md:p-10 reveal visible cursor-pointer group">
+          <div class="grid md:grid-cols-12 gap-8 items-start">
+            <div class="md:col-span-7">
+              <div class="flex items-center gap-3 mb-4">
+                <span class="source-badge src-${article.source}"><i class="${article.srcIcon || 'fa-solid fa-newspaper'}"></i>${article.srcLabel || article.source}</span>
+                <span class="text-xs text-[#8a8a85] font-mono">${article.time || ''}</span>
+              </div>
+              <h3 class="font-serif text-3xl md:text-4xl font-semibold leading-tight mb-4 group-hover:text-[#d4ff3d] transition-colors">
+                ${article.title}
+              </h3>
+              <div class="text-[#8a8a85] text-sm mb-5 font-mono">AI SUMMARY</div>
+              <p class="text-[#c5c5c0] leading-relaxed mb-6">${article.summary}</p>
+              <a href="${article.url || '#'}" target="_blank" class="inline-flex items-center gap-2 text-[#d4ff3d] font-semibold text-sm hover:gap-3 transition-all">
+                Read Article <i class="fa-solid fa-arrow-right arrow text-xs"></i>
+              </a>
+            </div>
+            <div class="md:col-span-5">
+              <div class="aspect-[4/3] rounded-xl overflow-hidden bg-white/5">
+                <img src="https://picsum.photos/seed/${article.id || article.title}/600/450.jpg" alt="${article.title}" class="article-img w-full h-full object-cover">
+              </div>
+            </div>
+          </div>
+        </article>
+      `).join('') : `<div class="text-[#8a8a85] text-center py-12">No digest generated yet today. Run the pipeline.</div>`;
+      
+      document.getElementById('digest-container').innerHTML = digestHtml;
+
+      // Update Ticker
+      if (digest && digest.length > 0) {
+        document.getElementById('news-ticker').innerHTML = digest.map(a => 
+          `<span class="text-[#8a8a85]"><span class="text-[#d4ff3d]">●</span> ${a.title}</span>`
+        ).join('');
+      }
+
+      // 3. Fetch Articles
+      allArticles = await api.getArticles();
+      renderArticles('all');
+
+      // 4. Fetch Subscribers
+      const subs = await api.getSubscribers();
+      renderSubscribers(subs);
+
+      // 5. Fetch Logs
+      const logs = await api.getLogs();
+      renderLogs(logs);
+
+    } catch (error) {
+      console.error("Initialization error:", error);
+      showToast("Failed to load initial data from backend.", true);
+    }
+  }
+
+  // ==========================================
+  // RENDER FUNCTIONS
+  // ==========================================
+
+  function renderArticles(filter) {
+    const container = document.getElementById('articles-grid');
+    const filtered = filter === 'all' ? allArticles : allArticles.filter(a => a.source === filter);
+    
+    if (!filtered || filtered.length === 0) {
+      container.innerHTML = `<div class="col-span-full text-[#8a8a85] text-center py-12">No articles found in database.</div>`;
+      return;
+    }
+
+    const html = filtered.map(a => `
+      <article class="article-card card rounded-2xl overflow-hidden cursor-pointer group">
+        <div class="aspect-[16/10] overflow-hidden bg-white/5 relative">
+          <img src="https://picsum.photos/seed/${a.id || a.title}/500/320.jpg" alt="${a.title}" class="article-img w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+          <div class="absolute top-3 left-3">
+            <span class="source-badge src-${a.source}"><i class="${a.srcIcon || 'fa-solid fa-newspaper'}"></i>${a.srcLabel || a.source}</span>
+          </div>
+          <div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 text-[10px] font-mono">
+            ${a.readTime || '5 min'}
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="text-xs text-[#8a8a85] font-mono mb-2">${a.time || ''}</div>
+          <h3 class="font-serif text-xl font-semibold leading-snug mb-3 group-hover:text-[#d4ff3d] transition-colors">${a.title}</h3>
+          <p class="text-sm text-[#8a8a85] leading-relaxed mb-4">${a.summary}</p>
+          <a href="${a.url || '#'}" target="_blank" class="inline-flex items-center gap-2 text-[#d4ff3d] font-semibold text-sm">
+            Read <i class="fa-solid fa-arrow-right arrow text-xs"></i>
+          </a>
+        </div>
+      </article>
+    `).join('');
+    
+    container.innerHTML = html;
+  }
+
+  function renderSubscribers(subs) {
+    const container = document.getElementById('subscribers-list');
+    if (!subs || subs.length === 0) {
+      container.innerHTML = `<div class="text-[#8a8a85] text-sm p-4">No subscribers yet.</div>`;
+      return;
+    }
+
+    const html = subs.map((s, i) => `
+      <div class="admin-row flex items-center justify-between py-3 px-3 rounded-lg ${i !== subs.length - 1 ? 'border-b border-white/5' : ''}">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#d4ff3d] to-[#ff6b35] flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
+            ${s.email[0].toUpperCase()}
+          </div>
+          <div class="min-w-0">
+            <div class="text-sm font-medium truncate">${s.email}</div>
+            <div class="text-xs text-[#8a8a85]">${formatTime(s.subscribed_at)} · via ${s.source || 'Direct'}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    
+    container.innerHTML = html;
+  }
+
+  function renderLogs(logs) {
+    const container = document.getElementById('pipeline-log');
+    if (!logs || logs.length === 0) {
+      container.innerHTML = `<div class="text-[#8a8a85] text-sm">No logs available.</div>`;
+      return;
+    }
+
+    const colorMap = {
+      success: 'bg-[#10a37f]',
+      info: 'bg-[#d4ff3d]',
+      error: 'bg-[#ef4444]',
+      neutral: 'bg-white/30'
+    };
+
+    const html = logs.map(log => `
+      <div class="flex gap-3">
+        <div class="w-2 h-2 rounded-full ${colorMap[log.type] || 'bg-white/30'} mt-1.5 flex-shrink-0"></div>
+        <div>
+          <div class="text-sm">${log.msg}</div>
+          <div class="text-xs text-[#8a8a85] font-mono">${log.detail}</div>
+        </div>
+      </div>
+    `).join('');
+    
+    container.innerHTML = html;
+  }
+
+  // ==========================================
+  // EVENT LISTENERS
+  // ==========================================
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderArticles(btn.dataset.filter);
+    });
+  });
+
+  // Subscribe Form
+  const form = document.getElementById('subscribe-form');
+  const emailInput = document.getElementById('email-input');
+  const subscribeBtn = document.getElementById('subscribe-btn');
+  const btnText = document.getElementById('btn-text');
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toast-msg');
+
+  function showToast(msg, isError = false) {
+    toastMsg.textContent = msg;
+    toast.classList.toggle('error', isError);
+    toast.querySelector('i').className = isError ? 'fa-solid fa-circle-exclamation' : 'fa-solid fa-circle-check';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = emailInput.value.trim();
+    if (!email || !email.includes('@')) {
+      showToast('Please enter a valid email address', true);
+      return;
+    }
+
+    // UI Loading State
+    subscribeBtn.disabled = true;
+    btnText.textContent = 'Subscribing...';
+    const originalIcon = subscribeBtn.querySelector('i');
+    originalIcon.className = 'spinner';
+
+    try {
+      // Call FastAPI backend to save to PostgreSQL
+      const result = await api.subscribe(email);
+      
+      showToast(`Success! You are subscriber #${result.subscriberCount || ''}.`);
+      emailInput.value = '';
+      
+      // Refetch stats and subscribers to update UI from DB
+      const stats = await api.getStats();
+      document.getElementById('hero-sub-count').textContent = stats.subscribers;
+      document.getElementById('stat-subscribers').textContent = stats.subscribers;
+      document.getElementById('admin-stat-subscribers').textContent = stats.subscribers;
+      document.getElementById('stat-emails').textContent = stats.emailsSent;
+      document.getElementById('admin-stat-emails').textContent = stats.emailsSent;
+
+      const subs = await api.getSubscribers();
+      renderSubscribers(subs);
+
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      // Reset UI State
+      subscribeBtn.disabled = false;
+      btnText.textContent = 'Subscribe Free';
+      originalIcon.className = 'fa-solid fa-arrow-right text-xs';
+    }
+  });
+
+  // Trigger Pipeline
+  document.getElementById('trigger-pipeline').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<div class="spinner"></div> Running pipeline...';
+    btn.disabled = true;
+
+    try {
+      // Call FastAPI to trigger Python script (RSS -> Groq -> Email -> DB)
+      const result = await api.runPipeline();
+      showToast('Pipeline completed successfully');
+      
+      // Refetch all data to show the new digest, articles, and logs
+      await initializeApp();
+    } catch (err) {
+      showToast(err.message || 'Pipeline failed to run', true);
+    } finally {
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+    }
+  });
+
+  // Scroll Reveal Observer
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Live Clock for Header
+  let runSeconds = 0;
+  let isLoaded = false;
+  setInterval(() => {
+    runSeconds += 1;
+    const mins = Math.floor(runSeconds / 60);
+    const el = document.getElementById('last-run');
+    if (el && isLoaded) el.textContent = `${mins} MIN AGO`;
+  }, 1000);
+
+  // Boot the app
+  initializeApp().then(() => {
+    isLoaded = true;
+    document.getElementById('last-run').textContent = '0 MIN AGO';
+  });
+</script>
+
+</body>
+</html>

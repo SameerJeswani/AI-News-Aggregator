@@ -1,8 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from .models import YouTubeVideo, OpenAIArticle, AnthropicArticle, Digest
+from .models import (
+    YouTubeVideo,
+    OpenAIArticle,
+    AnthropicArticle,
+    Digest,
+    Subscriber,
+)
 from .connection import get_session
+
 
 
 class Repository:
@@ -232,6 +239,8 @@ class Repository:
         digests = self.session.query(Digest).filter(
             Digest.created_at >= cutoff_time
         ).order_by(Digest.created_at.desc()).all()
+
+    
         
         return [
             {
@@ -245,4 +254,77 @@ class Repository:
             }
             for d in digests
         ]
+    
+    # ==========================================================
+    # Subscribers
+    # ==========================================================
+
+    def create_subscriber(self, email: str):
+        existing = (
+            self.session.query(Subscriber)
+            .filter(Subscriber.email == email)
+            .first()
+        )
+
+        if existing:
+
+            if not existing.active:
+                existing.active = True
+                self.session.commit()
+
+            return existing
+
+        subscriber = Subscriber(email=email)
+
+        self.session.add(subscriber)
+        self.session.commit()
+
+        return subscriber
+
+
+    def get_all_subscribers(self):
+        return (
+            self.session.query(Subscriber)
+            .filter(Subscriber.active.is_(True))
+            .all()
+        )
+
+
+    def get_subscriber_count(self):
+        return (
+            self.session.query(Subscriber)
+            .filter(Subscriber.active.is_(True))
+            .count()
+        )
+
+
+    def unsubscribe(self, email: str):
+
+        subscriber = (
+            self.session.query(Subscriber)
+            .filter(Subscriber.email == email)
+            .first()
+        )
+
+        if not subscriber:
+            return False
+
+        subscriber.active = False
+
+        self.session.commit()
+
+        return True
+
+
+    def subscriber_exists(self, email: str):
+
+        return (
+            self.session.query(Subscriber)
+            .filter(
+                Subscriber.email == email,
+                Subscriber.active.is_(True)
+            )
+            .first()
+            is not None
+        )
 
